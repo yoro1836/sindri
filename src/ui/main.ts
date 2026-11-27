@@ -314,10 +314,10 @@ function renderPit() {
   $('pit-wrap').hidden = !pit
   if (!pit) return
   const t = $('pit')
-  t.innerHTML = '<tr><th>ID</th><th>Name</th><th>File</th><th>Dev</th><th>Bin</th><th>Size</th></tr>'
+  t.innerHTML = '<tr><th>ID</th><th>Name</th><th>File</th><th>Dev</th><th>LUN</th><th>Bin</th><th>Size</th></tr>'
   for (const p of pit.partitions) {
     const tr = document.createElement('tr')
-    for (const v of [p.id, p.name, p.fileName || '—', p.devType, p.binType, p.sizeBytes ? fmtSize(p.sizeBytes) : '—']) {
+    for (const v of [p.id, p.name, p.fileName || '—', p.devType, p.lun, p.binType, p.sizeBytes ? fmtSize(p.sizeBytes) : 'rest of LUN']) {
       const td = document.createElement('td')
       td.textContent = String(v)
       tr.append(td)

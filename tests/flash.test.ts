@@ -53,6 +53,25 @@ describe('protocol details', () => {
     expect(pit.partitions[1]!.name).toBe('SUPER')
     expect(pit.partitions[0]!.sizeBytes).toBe(16384 * 4096)
   })
+
+  it('sizes UFS partitions from the block count, per LUN', () => {
+    // Shaped like the SM8450 (S22) PIT: LUN restarts at block 0, count 0 = rest of the unit.
+    const pit = parsePit(
+      buildPit('SM8450', [
+        { id: 40, binType: 0, devType: 8, attribute: 5, updateAttribute: 5, name: 'USERDATA', fileName: 'userdata.img', begin: 3726848, blocks: 0 },
+        { id: 70, binType: 0, devType: 8, attribute: 5, updateAttribute: 1, name: 'PGPT0', fileName: 'pgpt0.img', begin: 0, blocks: 6 },
+        { id: 41, binType: 0, devType: 8, attribute: 5, updateAttribute: 1, name: 'XBL', fileName: 'xbl_s.melf', begin: 6, blocks: 1024, lun: 1 },
+        { id: 74, binType: 0, devType: 8, attribute: 5, updateAttribute: 1, name: 'PGPT1', fileName: 'pgpt1.img', begin: 0, blocks: 6, lun: 1 },
+        { id: 51, binType: 0, devType: 8, attribute: 5, updateAttribute: 1, name: 'TZ', fileName: 'tz.mbn', begin: 1094, blocks: 1024, lun: 4 },
+      ]),
+    )
+    const size = (n: string) => pit.partitions.find((p) => p.name === n)!.sizeBytes
+    expect(size('USERDATA')).toBe(0)
+    expect(size('PGPT0')).toBe(6 * 4096)
+    expect(size('XBL')).toBe(4 << 20)
+    expect(size('TZ')).toBe(4 << 20)
+    expect(pit.partitions.find((p) => p.name === 'TZ')!.lun).toBe(4)
+  })
 })
 
 describe('read-only inspection', () => {

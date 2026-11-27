@@ -16,7 +16,9 @@ export interface Partition {
   beginBlock: number
   blockBytes: number
   blockCount: number
-  /** Partition size in bytes derived from block layout (0 when unknown). */
+  /** UFS logical unit (0 on single-unit storage). */
+  lun: number
+  /** Partition size in bytes from the PIT block count (0 when it fills the rest of the unit). */
   sizeBytes: number
   name: string
   fileName: string
@@ -42,7 +44,7 @@ export function parsePit(bytes: Uint8Array): Pit {
   if (count < 0 || count > 4096) throw new Error(`PIT: bad partition count ${count}`)
   if (bytes.byteLength < HEADER_SIZE + count * ENTRY_SIZE) throw new Error('PIT: truncated partition table')
 
-  const raw: Array<{ binType: number; devType: number; id: number; attribute: number; updateAttribute: number; blockSize: number; blockLength: number; offset: number; name: string; fileName: string }> = []
+  const raw: Array<{ binType: number; devType: number; id: number; attribute: number; updateAttribute: number; blockSize: number; blockLength: number; lun: number; name: string; fileName: string }> = []
   for (let i = 0; i < count; i++) {
     const o = HEADER_SIZE + i * ENTRY_SIZE
     const int = (k: number) => dv.getInt32(o + k * 4, true)
@@ -54,54 +56,33 @@ export function parsePit(bytes: Uint8Array): Pit {
       updateAttribute: int(4),
       blockSize: int(5),
       blockLength: int(6),
-      offset: int(7),
+      lun: int(7),
       name: cstr(bytes.subarray(o + 36, o + 68)),
       fileName: cstr(bytes.subarray(o + 68, o + 100)),
     })
   }
 
-  // Newer PITs keep the begin block in blockSize; older ones in offset.
-  const maxBlockSize = Math.max(0, ...raw.map((r) => r.blockSize))
-  const maxOffset = Math.max(0, ...raw.map((r) => r.offset))
-  const blockSizeIsBegin = maxBlockSize > 4096 && maxOffset <= 4096
-
-  const partitions: Partition[] = raw.map((r) => ({
-    id: r.id,
-    binType: r.binType,
-    devType: r.devType,
-    attribute: r.attribute,
-    updateAttribute: r.updateAttribute,
-    rawBlockSize: r.blockSize,
-    beginBlock: blockSizeIsBegin ? r.blockSize : r.offset,
-    blockBytes: r.devType === 8 ? 4096 : 512,
-    blockCount: 0,
-    sizeBytes: 0,
-    name: r.name,
-    fileName: r.fileName,
-  }))
-
-  const byDev = new Map<number, number[]>()
-  partitions.forEach((p, i) => {
-    const l = byDev.get(p.devType) ?? []
-    l.push(i)
-    byDev.set(p.devType, l)
+  // Entry ints: binType, devType, id, attribute, updateAttribute, begin block, block count, LUN, unused.
+  // A block count of 0 means "rest of the unit" (USERDATA "remained", PAD), so its size is unknown.
+  const partitions: Partition[] = raw.map((r) => {
+    const blockBytes = r.devType === 8 ? 4096 : 512
+    const blockCount = Math.max(0, r.blockLength)
+    return {
+      id: r.id,
+      binType: r.binType,
+      devType: r.devType,
+      attribute: r.attribute,
+      updateAttribute: r.updateAttribute,
+      rawBlockSize: r.blockSize,
+      beginBlock: r.blockSize,
+      blockBytes,
+      blockCount,
+      lun: Math.max(0, r.lun),
+      sizeBytes: blockCount * blockBytes,
+      name: r.name,
+      fileName: r.fileName,
+    }
   })
-  for (const idxs of byDev.values()) {
-    idxs.sort((a, b) => partitions[a]!.beginBlock - partitions[b]!.beginBlock)
-    idxs.forEach((i, k) => {
-      const p = partitions[i]!
-      let blocks = 0
-      const next = idxs[k + 1]
-      if (next !== undefined) {
-        const diff = partitions[next]!.beginBlock - p.beginBlock
-        if (diff > 0) blocks = diff
-      } else if (raw[i]!.blockLength > 0) {
-        blocks = raw[i]!.blockLength
-      }
-      p.blockCount = blocks
-      p.sizeBytes = blocks * p.blockBytes
-    })
-  }
 
   return {
     comTar2: cstr(bytes.subarray(8, 16)),
@@ -125,7 +106,7 @@ export function isAB(pit: Pit): boolean {
 }
 
 /** Build PIT bytes (used by tests and the mock device). */
-export function buildPit(cpuBlId: string, parts: Array<Omit<Partition, 'beginBlock' | 'blockBytes' | 'blockCount' | 'sizeBytes' | 'rawBlockSize'> & { begin: number; blocks: number }>): Uint8Array {
+export function buildPit(cpuBlId: string, parts: Array<Omit<Partition, 'beginBlock' | 'blockBytes' | 'blockCount' | 'sizeBytes' | 'rawBlockSize' | 'lun'> & { begin: number; blocks: number; lun?: number }>): Uint8Array {
   const out = new Uint8Array(HEADER_SIZE + parts.length * ENTRY_SIZE)
   const dv = new DataView(out.buffer)
   const enc = new TextEncoder()
@@ -135,7 +116,7 @@ export function buildPit(cpuBlId: string, parts: Array<Omit<Partition, 'beginBlo
   out.set(enc.encode(cpuBlId).subarray(0, 8), 16)
   parts.forEach((p, i) => {
     const o = HEADER_SIZE + i * ENTRY_SIZE
-    const ints = [p.binType, p.devType, p.id, p.attribute, p.updateAttribute, p.begin, p.blocks, 0, 0]
+    const ints = [p.binType, p.devType, p.id, p.attribute, p.updateAttribute, p.begin, p.blocks, p.lun ?? 0, 0]
     ints.forEach((v, k) => dv.setInt32(o + k * 4, v, true))
     out.set(enc.encode(p.name).subarray(0, 31), o + 36)
     out.set(enc.encode(p.fileName).subarray(0, 31), o + 68)
