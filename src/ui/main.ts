@@ -46,7 +46,7 @@ const log: Log = (level, msg) => {
 function status(text: string, kind: '' | 'ok' | 'err' = '') {
   const s = $('status')
   s.textContent = text
-  s.className = `oui-viewing-subtitle ${kind}`
+  s.className = `hero-sub ${kind}`
 }
 
 const fmtSize = (n: number) => {
@@ -59,6 +59,22 @@ const fmtSize = (n: number) => {
   return `${n.toFixed(i ? 1 : 0)} ${u[i]}`
 }
 
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: string): HTMLElementTagNameMap[K] {
+  const e = document.createElement(tag)
+  if (cls) e.className = cls
+  if (text !== undefined) e.textContent = text
+  return e
+}
+
+/** A list row: title on the left, value or summary on the right. */
+function kvRow(title: string, value: string, valueCls = '') {
+  const row = el('div', 'item')
+  const t = el('div', 'item-text')
+  t.append(el('span', 'item-title ellipsis', title))
+  row.append(t, el('span', `item-value ${valueCls}`, value))
+  return row
+}
+
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 // ---------- slots ----------
@@ -66,35 +82,36 @@ function renderSlots() {
   const wrap = $('slots')
   wrap.replaceChildren()
   for (const slot of SLOTS) {
-    const row = document.createElement('div')
-    row.className = 'oui-bubble-item slot'
     const f = st.files[slot]
-    row.innerHTML = `<span class="slot-name">${slot}</span><span class="slot-file ${f ? 'set' : ''}"></span>`
-    ;(row.querySelector('.slot-file') as HTMLElement).textContent = f ? `${f.name} · ${fmtSize(f.size)}` : 'No file'
-    if (f) {
-      const clear = document.createElement('button')
-      clear.className = 'icon-clear'
-      clear.title = 'Remove'
-      clear.textContent = '✕'
-      clear.onclick = () => {
-        delete st.files[slot]
-        filesChanged()
-      }
-      row.append(clear)
-    }
     const input = document.createElement('input')
     input.type = 'file'
+    input.hidden = true
     input.accept = '.tar,.md5,.img,.bin,.lz4,.pit'
     input.onchange = () => {
       const file = input.files?.[0]
       if (file) st.files[slot] = file
       filesChanged()
     }
-    const pick = document.createElement('button')
-    pick.className = 'oui-button'
-    pick.textContent = f ? 'Change' : 'Choose'
-    pick.onclick = () => input.click()
-    row.append(input, pick)
+    const row = document.createElement('div')
+    row.className = 'item clickable'
+    row.onclick = () => !st.busy && input.click()
+    const badge = el('span', 'slot-name', slot === 'USERDATA' ? 'USER' : slot)
+    const text = el('div', 'item-text')
+    text.append(
+      el('span', 'item-title ellipsis', f ? f.name : slot === 'USERDATA' ? 'User data' : `${slot} file`),
+      el('span', `item-sum${f ? ' accent' : ''}`, f ? fmtSize(f.size) : 'Not selected'),
+    )
+    row.append(badge, text, input)
+    if (f) {
+      const clear = el('button', 'icon-btn', '✕')
+      clear.title = 'Remove'
+      clear.onclick = (e) => {
+        e.stopPropagation()
+        delete st.files[slot]
+        filesChanged()
+      }
+      row.append(clear)
+    }
     wrap.append(row)
   }
 }
@@ -154,27 +171,15 @@ async function disconnect() {
 }
 
 function renderDevice() {
-  const dl = $('device-info')
-  if (!st.transport || !st.target) {
-    dl.hidden = true
+  const box = $('device-info')
+  if (!st.transport) {
+    box.replaceChildren()
     return
   }
-  const rows: Array<[string, string]> = [
-    ['Connection', st.transport.label],
-    ['Protocol', `v${st.target.protocol}`],
-    ['Compressed transfer', st.target.lz4 ? 'Supported' : 'Not supported'],
-  ]
+  const rows: Array<[string, string]> = [['Connection', st.transport.label]]
+  if (st.target) rows.push(['Protocol', `v${st.target.protocol}`], ['Compressed transfer', st.target.lz4 ? 'Supported' : 'Not supported'])
   if (st.pit) rows.push(['Chip', st.pit.cpuBlId || '?'], ['Partitions', String(st.pit.partitions.length)])
-  dl.replaceChildren(
-    ...rows.flatMap(([k, v]) => {
-      const dt = document.createElement('dt')
-      dt.textContent = k
-      const dd = document.createElement('dd')
-      dd.textContent = v
-      return [dt, dd]
-    }),
-  )
-  dl.hidden = false
+  box.replaceChildren(...rows.map(([k, v]) => kvRow(k, v)))
 }
 
 // ---------- read-only check ----------
@@ -235,30 +240,23 @@ function renderPlan() {
   const total = m.items.reduce((a, it) => a + it.spec.size, 0)
   for (const it of m.items) wrap.append(planRow(it))
   for (const u of m.unmatched) {
-    const row = document.createElement('div')
-    row.className = 'oui-bubble-item plan-item'
-    row.innerHTML = '<span class="name warn"></span><span class="meta">skipped</span>'
-    ;(row.firstChild as HTMLElement).textContent = `${u.sourceName} · no matching partition`
+    const row = el('div', 'item')
+    const t = el('div', 'item-text')
+    t.append(el('span', 'item-title ellipsis', u.sourceName), el('span', 'item-sum warn', 'No matching partition, skipped'))
+    row.append(t)
     wrap.append(row)
   }
-  const sum = document.createElement('div')
-  sum.className = 'oui-bubble-item plan-item'
-  sum.innerHTML = `<span class="name"><b>${m.items.length} images</b></span><span class="meta">${fmtSize(total)}</span>`
-  wrap.append(sum)
+  wrap.append(kvRow(`${m.items.length} images`, fmtSize(total)))
 }
 
 function planRow(it: FlashItem) {
-  const row = document.createElement('div')
-  row.className = 'oui-bubble-item plan-item'
-  const name = document.createElement('span')
-  name.className = 'name'
-  name.textContent = `${it.spec.sourceName} → ${it.part.name}`
-  if (st.target && streamsLz4(it.spec, st.target.lz4)) name.insertAdjacentHTML('beforeend', '<span class="tag lz4">LZ4</span>')
-  if (it.part.sizeBytes && it.spec.size > it.part.sizeBytes) name.classList.add('bad')
-  const meta = document.createElement('span')
-  meta.className = 'meta'
-  meta.textContent = fmtSize(it.spec.size)
-  row.append(name, meta)
+  const row = el('div', 'item')
+  const t = el('div', 'item-text')
+  const title = el('span', 'item-title ellipsis', it.part.name)
+  if (st.target && streamsLz4(it.spec, st.target.lz4)) title.append(el('span', 'tag', 'LZ4'))
+  const tooBig = it.part.sizeBytes > 0 && it.spec.size > it.part.sizeBytes
+  t.append(title, el('span', `item-sum ellipsis${tooBig ? ' bad' : ''}`, tooBig ? `${it.spec.sourceName} is larger than the partition` : it.spec.sourceName))
+  row.append(t, el('span', 'item-value', fmtSize(it.spec.size)))
   return row
 }
 
@@ -412,5 +410,16 @@ if (!webUsbSupported() && !webSerialSupported()) $('unsupported').hidden = false
 window.addEventListener('beforeunload', (e) => {
   if (st.busy) e.preventDefault()
 })
+// Expanded app bar: the big title fades as it scrolls away and the toolbar title takes over.
+const hero = $('hero')
+const onScroll = () => {
+  const h = hero.offsetHeight
+  const y = window.scrollY
+  hero.style.opacity = String(Math.max(0, 1 - y / (h * 0.6)))
+  $('toolbar').classList.toggle('shown', y > h * 0.55)
+}
+window.addEventListener('scroll', onScroll, { passive: true })
+onScroll()
+
 renderSlots()
 sync()

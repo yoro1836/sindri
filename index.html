@@ -2,108 +2,120 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f6f6f8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
     <title>Sindri</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%230865C3'/%3E%3Cpath d='M18 40h28l-4 8H22zM24 16h16v8l6 4v8H18v-8l6-4z' fill='white'/%3E%3C/svg%3E" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='20' fill='%233e91ff'/%3E%3Cpath d='M18 40h28l-4 8H22zM24 16h16v8l6 4v8H18v-8l6-4z' fill='white'/%3E%3C/svg%3E" />
   </head>
   <body>
-    <main class="container">
-      <section class="oui-viewing">
-        <h1 class="oui-viewing-title">Sindri</h1>
-        <p class="oui-viewing-subtitle" id="status">No device connected</p>
+    <header class="toolbar" id="toolbar">
+      <span class="toolbar-title">Sindri</span>
+    </header>
+
+    <main class="page">
+      <section class="hero" id="hero">
+        <h1 class="hero-title">Sindri</h1>
+        <p class="hero-sub" id="status">No device connected</p>
       </section>
 
-      <section class="oui-interaction">
-        <div id="unsupported" class="oui-bubble notice" hidden>
-          This browser has neither WebUSB nor Web Serial. Use Chrome or Edge on desktop or Android, over HTTPS.
-        </div>
+      <div id="unsupported" class="card notice" hidden>
+        <div class="item"><div class="item-text"><span class="item-title">Browser not supported</span>
+          <span class="item-sum">Needs WebUSB or Web Serial: Chrome or Edge on desktop or Android, over HTTPS.</span></div></div>
+      </div>
 
-        <span class="oui-bubble-title">Device</span>
-        <div class="oui-bubble">
-          <div class="oui-bubble-item row">
-            <button class="oui-button oui-button--active" id="connect-usb">Connect USB</button>
-            <button class="oui-button" id="connect-serial">Connect serial</button>
-            <button class="oui-button" id="disconnect" hidden>Disconnect</button>
-          </div>
-          <div class="oui-bubble-item hint" id="connect-hint">
-            Put the phone in Download mode and plug it in. On Windows, use <b>Connect serial</b> with the stock Samsung driver.
-          </div>
-          <dl class="oui-bubble-item kv" id="device-info" hidden></dl>
-        </div>
-
-        <span class="oui-bubble-title">Firmware</span>
-        <div class="oui-bubble" id="slots"></div>
-
-        <span class="oui-bubble-title">Read-only check</span>
-        <div class="oui-bubble">
-          <div class="oui-bubble-item hint">
-            Reads the partition table and matches your files against it. Nothing is written. The phone stays in Download mode.
-          </div>
-          <div class="oui-bubble-item row">
-            <button class="oui-button oui-button--active" id="inspect" disabled>Read PIT</button>
-            <button class="oui-button" id="verify" disabled>Verify MD5</button>
-            <button class="oui-button" id="save-pit" hidden>Save PIT</button>
+      <h2 class="group-title">Device</h2>
+      <div class="card">
+        <div class="item" id="connect-hint">
+          <div class="item-text">
+            <span class="item-title">Connect a phone in Download mode</span>
+            <span class="item-sum">On Windows, use Serial with the stock Samsung driver.</span>
           </div>
         </div>
-
-        <div id="plan-wrap" hidden>
-          <span class="oui-bubble-title">Plan</span>
-          <div class="oui-bubble" id="plan"></div>
+        <div class="item buttons">
+          <button class="btn filled" id="connect-usb">Connect USB</button>
+          <button class="btn tonal" id="connect-serial">Connect serial</button>
+          <button class="btn tonal" id="disconnect" hidden>Disconnect</button>
         </div>
+        <div id="device-info"></div>
+      </div>
 
-        <span class="oui-bubble-title">Flash</span>
-        <div class="oui-bubble">
-          <label class="oui-bubble-item oui-container-toggle between">
-            <span>Reboot when done</span>
-            <input type="checkbox" class="toggle" id="reboot" checked />
-            <span class="toggle-slider"></span>
-          </label>
-          <label class="oui-bubble-item oui-container-toggle between">
-            <span>Enable writing<small class="sub">Unlocks after a successful read-only check on this connection</small></span>
-            <input type="checkbox" class="toggle" id="arm" disabled />
-            <span class="toggle-slider"></span>
-          </label>
-          <div class="oui-bubble-item row">
-            <button class="oui-button danger" id="flash" disabled>Flash</button>
-            <button class="oui-button" id="cancel" hidden>Cancel</button>
+      <h2 class="group-title">Firmware</h2>
+      <div class="card" id="slots"></div>
+
+      <h2 class="group-title">Read-only check</h2>
+      <div class="card">
+        <div class="item">
+          <div class="item-text">
+            <span class="item-sum">Reads the partition table and matches your files against it. Nothing is written, and the phone stays in Download mode.</span>
           </div>
-          <div class="oui-bubble-item" id="progress-wrap" hidden>
-            <div class="progress-label"><span id="progress-stage"></span><span id="progress-pct"></span></div>
+        </div>
+        <div class="item buttons">
+          <button class="btn filled" id="inspect" disabled>Read PIT</button>
+          <button class="btn tonal" id="verify" disabled>Verify MD5</button>
+          <button class="btn tonal" id="save-pit" hidden>Save PIT</button>
+        </div>
+      </div>
+
+      <div id="plan-wrap" hidden>
+        <h2 class="group-title">Plan</h2>
+        <div class="card" id="plan"></div>
+      </div>
+
+      <h2 class="group-title">Flash</h2>
+      <div class="card">
+        <label class="item clickable">
+          <div class="item-text"><span class="item-title">Reboot when done</span></div>
+          <input type="checkbox" class="switch" id="reboot" checked />
+        </label>
+        <label class="item clickable">
+          <div class="item-text">
+            <span class="item-title">Enable writing</span>
+            <span class="item-sum">Unlocks after a read-only check passes on this connection</span>
+          </div>
+          <input type="checkbox" class="switch" id="arm" disabled />
+        </label>
+        <div class="item" id="progress-wrap" hidden>
+          <div class="item-text">
+            <div class="progress-label"><span class="item-title" id="progress-stage"></span><span class="item-sum" id="progress-pct"></span></div>
             <div class="progress"><div id="progress-bar"></div></div>
           </div>
         </div>
-
-        <details id="pit-wrap" hidden>
-          <summary class="oui-bubble-title">Partitions</summary>
-          <div class="oui-bubble table-wrap"><table id="pit"></table></div>
-        </details>
-
-        <span class="oui-bubble-title">Log</span>
-        <div class="oui-bubble">
-          <label class="oui-bubble-item oui-container-toggle between">
-            <span>Verbose</span>
-            <input type="checkbox" class="toggle" id="verbose" />
-            <span class="toggle-slider"></span>
-          </label>
-          <pre class="oui-bubble-item log" id="log"></pre>
+        <div class="item buttons">
+          <button class="btn danger" id="flash" disabled>Flash</button>
+          <button class="btn tonal" id="cancel" hidden>Cancel</button>
         </div>
+      </div>
 
-        <p class="footer">
-          Sindri is free software (GPL-3.0-or-later). Protocol logic ported from brokkr-flash; transports follow libmjolnir.
-          Not affiliated with Samsung. Flashing can brick a device; you use it at your own risk.
-        </p>
-      </section>
+      <details id="pit-wrap" hidden>
+        <summary class="group-title">Partitions</summary>
+        <div class="card table-wrap"><table id="pit"></table></div>
+      </details>
+
+      <h2 class="group-title">Log</h2>
+      <div class="card">
+        <label class="item clickable">
+          <div class="item-text"><span class="item-title">Verbose</span></div>
+          <input type="checkbox" class="switch" id="verbose" />
+        </label>
+        <pre class="item log" id="log"></pre>
+      </div>
+
+      <p class="footer">
+        Sindri is free software (GPL-3.0-or-later). Protocol logic ported from brokkr-flash; transports follow libmjolnir.
+        Not affiliated with Samsung. Flashing can brick a device; you use it at your own risk.
+      </p>
     </main>
 
-    <div class="oui-dialog-mask" id="dialog-mask" hidden></div>
-    <div class="oui-dialog" id="dialog" hidden>
-      <div class="oui-dialog-header" id="dialog-title"></div>
-      <div class="oui-dialog-description" id="dialog-body"></div>
-      <div class="oui-dialog-action">
-        <a href="#" class="oui-dialog-action-link" id="dialog-cancel">Cancel</a>
-        <div class="oui-dialog-divider"></div>
-        <a href="#" class="oui-dialog-action-link danger-text" id="dialog-ok">Flash</a>
+    <div class="scrim" id="dialog-mask" hidden></div>
+    <div class="sheet" id="dialog" role="dialog" aria-modal="true" hidden>
+      <h3 class="sheet-title" id="dialog-title"></h3>
+      <div class="sheet-body" id="dialog-body"></div>
+      <div class="sheet-actions">
+        <button class="btn text" id="dialog-cancel">Cancel</button>
+        <span class="sheet-divider"></span>
+        <button class="btn text danger-text" id="dialog-ok">Flash</button>
       </div>
     </div>
 
