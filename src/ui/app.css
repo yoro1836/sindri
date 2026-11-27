@@ -1,45 +1,50 @@
 /* Sindri UI in the style of Samsung One UI 8: expanded app bar, rounded list cards,
    pill buttons, inset switches, bottom sheet dialogs. Original CSS, no Samsung assets. */
 
+/* Values from One UI 8 (SESL 8) resources, via tribalfs/sesl-androidx (sesl8 branch). */
 :root {
-  --bg: #f6f6f8;
-  --card: #ffffff;
-  --text: #0f0f0f;
-  --text-2: #7b7b80;
-  --accent: #0381fe;
-  --accent-tonal: rgba(3, 129, 254, 0.1);
-  --tonal: #ececf0;
-  --divider: #ececef;
-  --danger: #f23149;
-  --danger-tonal: rgba(242, 49, 73, 0.1);
-  --ok: #1fa462;
-  --warn: #d88a00;
-  --switch-off: #c6c6cc;
+  --bg: #f1f1f3; /* sesl_round_and_bgcolor_light (gray L3) */
+  --card: #fcfcff; /* sesl_background_color_light (gray L1) */
+  --text: #010102; /* sesl_text1_light */
+  --text-2: #848487; /* sesl_text5_light: summaries, subheaders */
+  --accent: #387aff; /* sesl_primary_color */
+  --accent-tonal: rgba(56, 122, 255, 0.12);
+  --tonal: #e4e4e7; /* sesl_btn_background_color_light (gray L6) */
+  --divider: #e4e4e7; /* sesl_list_divider_color_light */
+  --danger: #d93e36; /* sesl_functional_red_light */
+  --danger-tonal: rgba(217, 62, 54, 0.12);
+  --ok: #11a85f; /* sesl_functional_green_light */
+  --warn: #e65b17; /* sesl_functional_orange_light */
+  --switch-off: #99999e; /* sesl_switch_track_off_color */
+  --switch-off-stroke: #8c8c8c; /* sesl_switch_thumb_off_stroke_color */
+  --switch-thumb: #fcfcff;
   --scrim: rgba(0, 0, 0, 0.32);
-  --toolbar: rgba(246, 246, 248, 0.82);
-  --radius-card: 26px;
-  --radius-sheet: 32px;
+  --toolbar: rgba(241, 241, 243, 0.8);
+  --radius-card: 26px; /* sesl_rounded_corner_radius */
+  --radius-sheet: 26px; /* sesl_dialog_background_corner_radius */
   --ease: cubic-bezier(0.22, 0.25, 0, 1);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #000000;
-    --card: #171717;
-    --text: #fafafa;
-    --text-2: #8e8e93;
-    --accent: #3e91ff;
-    --accent-tonal: rgba(62, 145, 255, 0.16);
-    --tonal: #2a2a2c;
-    --divider: #262628;
-    --danger: #ff4f63;
-    --danger-tonal: rgba(255, 79, 99, 0.16);
-    --ok: #3ccf7e;
-    --warn: #ffb02e;
-    --switch-off: #4a4a4e;
+    --bg: #010102; /* gray D1 */
+    --card: #17171a; /* gray D3 */
+    --text: #fafaff; /* sesl_text1_dark */
+    --text-2: #99999e; /* sesl_text6_dark */
+    --accent: #387aff;
+    --accent-tonal: rgba(89, 143, 255, 0.18);
+    --tonal: #2d2d30; /* gray D4 */
+    --divider: #3a3a3d; /* sesl_list_divider_color_dark */
+    --danger: #fc6c65; /* sesl_functional_red_text_dark */
+    --danger-tonal: rgba(252, 108, 101, 0.16);
+    --ok: #58db9c;
+    --warn: #fc864c;
+    --switch-off: #636368; /* sesl_switch_track_off_color_dark */
+    --switch-off-stroke: #8f8f8f;
+    --switch-thumb: #fcfcff;
     --scrim: rgba(0, 0, 0, 0.6);
-    --toolbar: rgba(0, 0, 0, 0.78);
+    --toolbar: rgba(1, 1, 2, 0.78);
     color-scheme: dark;
   }
 }
@@ -89,7 +94,7 @@ button {
   opacity: 1;
 }
 .toolbar-title {
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 700;
 }
 
@@ -110,7 +115,7 @@ button {
 }
 .hero-title {
   margin: 0;
-  font-size: 38px;
+  font-size: 34px;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -128,8 +133,9 @@ button {
 
 /* ---------- list cards ---------- */
 .group-title {
-  margin: 22px 24px 8px;
-  font-size: 14px;
+  margin: 13px 24px 5px;
+  padding-top: 10px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-2);
 }
@@ -165,7 +171,7 @@ details[open] > summary.group-title::after {
   display: flex;
   align-items: center;
   gap: 16px;
-  min-height: 60px;
+  min-height: 58px;
   padding: 14px 24px;
   margin: 0;
 }
@@ -200,7 +206,7 @@ details[open] > summary.group-title::after {
   font-size: 17px;
 }
 .item-sum {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-2);
   line-height: 1.4;
 }
@@ -208,7 +214,7 @@ details[open] > summary.group-title::after {
   color: var(--accent);
 }
 .item-value {
-  color: var(--text-2);
+  color: var(--accent);
   font-size: 15px;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -235,11 +241,11 @@ details[open] > summary.group-title::after {
 }
 .btn {
   flex: 1 1 140px;
-  height: 46px;
+  height: 44px;
   padding: 0 22px;
   border: 0;
-  border-radius: 999px;
-  font-size: 16px;
+  border-radius: 22px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.15s var(--ease), filter 0.15s, opacity 0.2s;
@@ -271,8 +277,10 @@ details[open] > summary.group-title::after {
 .btn.text {
   flex: 1;
   background: none;
-  color: var(--accent);
+  color: var(--text);
   height: 52px;
+  font-size: 18px;
+  font-weight: 600;
 }
 .danger-text {
   color: var(--danger) !important;
@@ -291,16 +299,16 @@ details[open] > summary.group-title::after {
   place-items: center;
 }
 
-/* ---------- switch ---------- */
+/* ---------- switch (SESL: track 35x20 r10, thumb 20dp ring 2dp) ---------- */
 .switch {
   appearance: none;
   -webkit-appearance: none;
   flex: none;
   position: relative;
-  width: 50px;
-  height: 28px;
-  margin: 0;
-  border-radius: 999px;
+  width: 35px;
+  height: 20px;
+  margin: 0 2px;
+  border-radius: 10px;
   background: var(--switch-off);
   cursor: pointer;
   transition: background 0.25s var(--ease);
@@ -308,23 +316,24 @@ details[open] > summary.group-title::after {
 .switch::after {
   content: '';
   position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 22px;
-  height: 22px;
+  top: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  transition: transform 0.3s var(--ease);
+  background: var(--switch-thumb);
+  box-shadow: inset 0 0 0 2px var(--switch-off-stroke);
+  transition: transform 0.3s var(--ease), box-shadow 0.25s var(--ease);
 }
 .switch:checked {
   background: var(--accent);
 }
 .switch:checked::after {
-  transform: translateX(22px);
+  transform: translateX(15px);
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 .switch:disabled {
-  opacity: 0.38;
+  opacity: 0.4;
   cursor: default;
 }
 .item.clickable:has(.switch:disabled) {
@@ -460,8 +469,8 @@ th {
 .sheet {
   position: fixed;
   left: 50%;
-  bottom: calc(12px + env(safe-area-inset-bottom));
-  width: min(560px, calc(100% - 24px));
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  width: min(560px, calc(100% - 20px));
   transform: translateX(-50%);
   background: var(--card);
   border-radius: var(--radius-sheet);
@@ -471,11 +480,11 @@ th {
 }
 .sheet-title {
   margin: 0 0 12px;
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 700;
 }
 .sheet-body {
-  font-size: 15px;
+  font-size: 14px;
   color: var(--text-2);
   line-height: 1.5;
 }
