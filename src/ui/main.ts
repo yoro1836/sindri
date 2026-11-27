@@ -328,7 +328,7 @@ function renderPit() {
 
 function renderPlan() {
   const m = st.mapping
-  $('plan-wrap').hidden = !m
+  $('plan-wrap').hidden = !m || (!m.items.length && !m.unmatched.length)
   if (!m) return
   const wrap = $('plan')
   wrap.replaceChildren()
