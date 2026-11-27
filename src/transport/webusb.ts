@@ -53,12 +53,16 @@ export class WebUsbTransport implements Transport {
       }
       if (this.iface >= 0) break
     }
-    if (this.iface < 0) throw new Error('no CDC data interface with bulk endpoints found')
+    if (this.iface < 0) {
+      await d.close().catch(() => {})
+      throw new Error('no CDC data interface with bulk endpoints found')
+    }
     try {
       await withTimeout(d.claimInterface(this.iface), 5000, 'claiming the USB interface')
     } catch (e) {
+      await d.close().catch(() => {})
       throw new Error(
-        `could not claim the USB interface (${String(e)}). Another driver owns it: on Windows use the Serial connection or install WinUSB with Zadig; on Linux use Serial or unbind cdc_acm.`,
+        `could not claim the USB interface (${String(e)}); a system driver owns it`,
       )
     }
     if (alt > 0) await d.selectAlternateInterface(this.iface, alt)

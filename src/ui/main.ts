@@ -7,8 +7,8 @@ import { flash, inspect, streamsLz4 } from '../core/session'
 import type { Transport } from '../core/transport'
 import { findMd5Trailer, md5Of } from '../io/md5'
 import { blobSource, type Source } from '../io/source'
-import { requestUsbDevice, webUsbSupported, WebUsbTransport } from '../transport/webusb'
-import { requestSerialPort, webSerialSupported, WebSerialTransport } from '../transport/webserial'
+import { requestUsbDevice, usbFilters, webUsbSupported, WebUsbTransport } from '../transport/webusb'
+import { requestSerialPort, serialFilters, webSerialSupported, WebSerialTransport } from '../transport/webserial'
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
 
@@ -27,6 +27,8 @@ interface State {
   /** Inspection passed on this connection with the current file set. */
   checked: boolean
   abort?: AbortController
+  /** Set when the first connection kind failed; the next Connect click uses this one. */
+  fallback?: Kind
 }
 
 const st: State = { handshaken: false, busy: false, files: {}, checked: false }
@@ -129,16 +131,105 @@ function sources(): Source[] {
 }
 
 // ---------- device ----------
-async function connect(kind: 'usb' | 'serial') {
+type Kind = 'usb' | 'serial'
+const PREF_KEY = 'sindri.connection'
+
+function isWindows(): boolean {
+  const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData
+  return /win/i.test(uaData?.platform ?? navigator.platform ?? '')
+}
+
+/** Connection kinds to try, best first. Windows' stock Samsung driver owns the USB interface, so serial goes first there. */
+function kinds(): Kind[] {
+  const supported = (['usb', 'serial'] as Kind[]).filter((k) => (k === 'usb' ? webUsbSupported() : webSerialSupported()))
+  let pref: string | null = null
   try {
-    const t = kind === 'usb' ? new WebUsbTransport(await requestUsbDevice()) : new WebSerialTransport(await requestSerialPort())
+    pref = localStorage.getItem(PREF_KEY)
+  } catch {
+    // storage unavailable
+  }
+  const first: Kind = pref === 'usb' || pref === 'serial' ? pref : isWindows() ? 'serial' : 'usb'
+  return supported.sort((a, b) => (a === first ? -1 : b === first ? 1 : 0))
+}
+
+function remember(kind: Kind) {
+  try {
+    localStorage.setItem(PREF_KEY, kind)
+  } catch {
+    // ignore
+  }
+}
+
+/** Devices this site was already allowed to use: connecting to them needs no chooser. */
+async function granted(kind: Kind): Promise<Transport[]> {
+  if (kind === 'usb') {
+    const devs = await navigator.usb.getDevices()
+    return devs.filter((d) => usbFilters.some((f) => f.vendorId === d.vendorId && f.productId === d.productId)).map((d) => new WebUsbTransport(d))
+  }
+  const ports = await navigator.serial.getPorts()
+  return ports
+    .filter((p) => {
+      const i = p.getInfo()
+      return serialFilters.some((f) => f.usbVendorId === i.usbVendorId && f.usbProductId === i.usbProductId)
+    })
+    .map((p) => new WebSerialTransport(p))
+}
+
+async function tryOpen(t: Transport): Promise<boolean> {
+  try {
     await t.open()
-    st.transport = t
-    st.handshaken = false
-    st.checked = false
-    log('info', `Connected: ${t.label}`)
-    status('Connected · not checked yet')
-    if (kind === 'usb') navigator.usb.addEventListener('disconnect', onUsbDisconnect)
+  } catch (e) {
+    log('warn', `${t.kind === 'usb' ? 'USB' : 'Serial'}: ${errText(e)}`)
+    return false
+  }
+  st.transport = t
+  st.handshaken = false
+  st.checked = false
+  st.fallback = undefined
+  remember(t.kind as Kind)
+  log('info', `Connected: ${t.label}`)
+  status('Connected · not checked yet')
+  sync()
+  return true
+}
+
+/** Silent: use an already-allowed device, preferred kind first. Used on load and when a phone is plugged in. */
+let connecting = false
+async function autoConnect(skip?: Kind): Promise<boolean> {
+  if (st.transport || st.busy || connecting) return false
+  connecting = true
+  try {
+    for (const k of kinds()) {
+      if (k === skip) continue
+      for (const t of await granted(k).catch(() => [])) if (await tryOpen(t)) return true
+    }
+    return false
+  } finally {
+    connecting = false
+  }
+}
+
+/**
+ * The Connect button. Tries allowed devices first, then opens one chooser (a chooser needs the click).
+ * If the OS driver holds the USB interface, the next click offers serial instead.
+ */
+async function connect() {
+  if (st.transport) return
+  try {
+    const order = kinds()
+    // After a failed kind, don't retry it silently; go straight to the other one.
+    if (await autoConnect(st.fallback ? order.find((k) => k !== st.fallback) : undefined)) return
+    const kind = st.fallback ?? order[0]
+    if (!kind) return
+    const t = kind === 'usb' ? new WebUsbTransport(await requestUsbDevice()) : new WebSerialTransport(await requestSerialPort())
+    if (await tryOpen(t)) return
+    const other = order.find((k) => k !== kind)
+    if (other) {
+      st.fallback = other
+      status(`${kind === 'usb' ? 'USB' : 'Serial'} is busy · tap Connect to use ${other === 'usb' ? 'USB' : 'serial'}`, 'err')
+    } else {
+      status('Could not connect', 'err')
+    }
   } catch (e) {
     if (e instanceof DOMException && e.name === 'NotFoundError') return // chooser cancelled
     log('error', `Connect failed: ${errText(e)}`)
@@ -149,6 +240,10 @@ async function connect(kind: 'usb' | 'serial') {
 
 function onUsbDisconnect(ev: USBConnectionEvent) {
   if (st.transport instanceof WebUsbTransport && ev.device === st.transport.device) dropDevice('Device disconnected')
+}
+
+function onSerialDisconnect(ev: Event) {
+  if (st.transport instanceof WebSerialTransport && ev.target === st.transport.port) dropDevice('Device disconnected')
 }
 
 function dropDevice(msg: string) {
@@ -378,8 +473,9 @@ async function runFlash() {
 // ---------- wiring ----------
 function sync() {
   const connected = !!st.transport
-  $<HTMLButtonElement>('connect-usb').hidden = connected || !webUsbSupported()
-  $<HTMLButtonElement>('connect-serial').hidden = connected || !webSerialSupported()
+  const connectBtn = $<HTMLButtonElement>('connect')
+  connectBtn.hidden = connected || !kinds().length
+  connectBtn.textContent = st.fallback ? `Connect via ${st.fallback === 'usb' ? 'USB' : 'serial'}` : 'Connect'
   $<HTMLButtonElement>('disconnect').hidden = !connected
   $('connect-hint').hidden = connected
   $<HTMLButtonElement>('disconnect').disabled = st.busy
@@ -396,8 +492,16 @@ function sync() {
   renderDevice()
 }
 
-$('connect-usb').onclick = () => connect('usb')
-$('connect-serial').onclick = () => connect('serial')
+$('connect').onclick = () => connect()
+if (webUsbSupported()) {
+  navigator.usb.addEventListener('disconnect', onUsbDisconnect)
+  navigator.usb.addEventListener('connect', () => void autoConnect())
+}
+if (webSerialSupported()) {
+  navigator.serial.addEventListener('disconnect', onSerialDisconnect)
+  navigator.serial.addEventListener('connect', () => void autoConnect())
+}
+void autoConnect()
 $('disconnect').onclick = () => disconnect()
 $('inspect').onclick = () => runInspect()
 $('verify').onclick = () => runVerify()

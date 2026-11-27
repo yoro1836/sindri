@@ -11,12 +11,14 @@ Flashing works against the simulated device in `tests/` but has not been verifie
 Open the hosted page (GitHub Pages) in Chrome or Edge, then:
 
 1. Put the phone in Download mode and plug it in.
-2. **Connect USB** (Linux, macOS, Android) or **Connect serial** (Windows with the stock Samsung driver).
+2. Tap **Connect**. Sindri picks the connection for you: serial first on Windows (the Samsung driver or the built-in
+   Windows 10/11 USB serial driver owns the port), WebUSB elsewhere. If one is busy, the button switches to the other.
+   Once allowed, the phone reconnects by itself when plugged in again.
 3. Pick BL / AP / CP / CSC (`.tar` or `.tar.md5`, `.lz4` entries are sent compressed when the phone supports it).
 4. **Read PIT** — read-only. Shows the device's partitions and what each file would be written to.
 5. Only after that passes, **Enable writing** unlocks **Flash**.
 
-Linux: the USB node must be writable (udev rule for `04e8`), and `cdc_acm` may hold the interface; if USB fails, use serial (`uucp`/`dialout` group).
+Linux: the USB node must be writable (udev rule for `04e8`), and `cdc_acm` may hold the interface; then serial is used (`uucp`/`dialout` group).
 
 ## Safety
 

@@ -7,7 +7,7 @@ const { spawn } = require('child_process')
   const b = await chromium.launch()
   const p = await b.newPage({ viewport: { width: 412, height: 900 }, colorScheme: process.env.SCHEME || 'light' })
   p.on('pageerror', (e) => console.log('pageerror', e.message))
-  await p.route('http://localhost:5174/', async (route) => {
+  await p.route(/localhost:5174\/(\?busy)?$/, async (route) => {
     const res = await route.fetch()
     let html = await res.text()
     html = html.replace(
@@ -16,7 +16,7 @@ const { spawn } = require('child_process')
     )
     route.fulfill({ response: res, body: html })
   })
-  await p.goto('http://localhost:5174/')
+  await p.goto('http://localhost:5174/' + (process.env.BUSY ? '?busy' : ''))
   const ap = await p.evaluate(async () => {
     const { buildTar } = await import('/src/io/tar.ts')
     const { lz4Frame } = await import('/tests/lz4-encode.ts')
@@ -34,7 +34,11 @@ const { spawn } = require('child_process')
   })
   const buf = Buffer.from(ap, 'base64')
   await p.screenshot({ path: (process.env.OUT || '/tmp') + '/sindri-' + (process.env.SCHEME || 'light') + '-0-initial.png' })
-  await p.click('#connect-usb')
+  await p.click('#connect')
+  if (process.env.BUSY) {
+    console.log('after first click:', await p.textContent('#status'), '| button:', await p.textContent('#connect'))
+    await p.click('#connect')
+  }
   console.log('after connect:', await p.textContent('#log'), await p.textContent('#status'))
   const inputs = await p.$$('#slots input[type=file]')
   await inputs[1].setInputFiles({ name: 'AP_TEST.tar', mimeType: 'application/x-tar', buffer: buf })
